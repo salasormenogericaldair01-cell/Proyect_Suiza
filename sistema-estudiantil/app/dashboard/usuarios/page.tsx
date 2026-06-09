@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { UserPlus, Ban, Check, Pencil, Trash2 } from "lucide-react"
+import { UserPlus, Ban, Check, Pencil, Trash2, Upload } from "lucide-react"
+import ImportUsuariosModal from "./ImportUsuariosModal"
 
 type Usuario = {
   id: string
@@ -24,6 +25,7 @@ export default function UsuariosPage() {
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
+  const [showImportModal, setShowImportModal] = useState(false)
   const [usuarioEditar, setUsuarioEditar] = useState<Usuario | null>(null)
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "STUDENT" })
   const [formEdit, setFormEdit] = useState({ name: "", email: "", role: "" })
@@ -117,12 +119,20 @@ export default function UsuariosPage() {
           <h1 className="text-2xl font-bold text-gray-800">Gestión de Usuarios</h1>
           <p className="text-gray-500 text-sm mt-1">Administra todos los usuarios del sistema</p>
         </div>
-        <button
-          onClick={() => { setShowModal(true); setError("") }}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
-        >
-          <UserPlus size={18} /> Nuevo usuario
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="flex items-center gap-2 border border-gray-300 bg-white text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition"
+          >
+            <Upload size={18} /> Carga masiva (CSV)
+          </button>
+          <button
+            onClick={() => { setShowModal(true); setError("") }}
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+          >
+            <UserPlus size={18} /> Nuevo usuario
+          </button>
+        </div>
       </div>
 
       {success && <p className="text-green-600 bg-green-50 px-4 py-2 rounded-lg">{success}</p>}
@@ -224,6 +234,12 @@ export default function UsuariosPage() {
           </div>
         </div>
       )}
+
+      <ImportUsuariosModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onSuccess={cargarUsuarios}
+      />
     </div>
   )
 }
