@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Upload, Download, AlertTriangle, CheckCircle2, Loader2, Copy, Check, X } from "lucide-react"
+import { Upload, Download, AlertTriangle, Loader2, Copy, Check, X } from "lucide-react"
 import Papa from "papaparse"
 
 interface ImportUsuariosModalProps {
@@ -23,11 +23,29 @@ interface UserCredential {
   tempPassword?: string
 }
 
+interface ImportUserRow {
+  name?: string
+  email?: string
+  role?: string
+  phone?: string
+  career?: string
+  cycle?: string
+  studentCode?: string
+  parentEmail?: string
+}
+
+interface ImportResponse {
+  imported: number
+  updated: number
+  errors?: RowError[]
+  credentials?: UserCredential[]
+  error?: string
+}
+
 export default function ImportUsuariosModal({ isOpen, onClose, onSuccess }: ImportUsuariosModalProps) {
   const [file, setFile] = useState<File | null>(null)
   const [importing, setImporting] = useState(false)
   const [progress, setProgress] = useState(0)
-  const [totalRows, setTotalRows] = useState(0)
   const [results, setResults] = useState<{
     imported: number
     updated: number
@@ -80,8 +98,7 @@ export default function ImportUsuariosModal({ isOpen, onClose, onSuccess }: Impo
       header: true,
       skipEmptyLines: true,
       complete: async (parsed) => {
-        const rows = parsed.data as any[]
-        setTotalRows(rows.length)
+        const rows = parsed.data as ImportUserRow[]
 
         if (rows.length === 0) {
           setResults({
@@ -111,11 +128,11 @@ export default function ImportUsuariosModal({ isOpen, onClose, onSuccess }: Impo
             })
 
             if (!res.ok) {
-              const errorData = await res.json()
+              const errorData = await res.json() as ImportResponse
               throw new Error(errorData.error || `Error del servidor (${res.status})`)
             }
 
-            const data = await res.json()
+            const data = await res.json() as ImportResponse
             currentImported += data.imported
             currentUpdated += data.updated
             
@@ -132,12 +149,13 @@ export default function ImportUsuariosModal({ isOpen, onClose, onSuccess }: Impo
               allCredentials.push(...data.credentials)
             }
 
-          } catch (err: any) {
+          } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : "Error al enviar el lote"
             chunk.forEach((user, index) => {
               allErrors.push({
                 row: i + index + 1,
                 email: user.email || "Desconocido",
-                error: err.message || "Error al enviar el lote"
+                error: message
               })
             })
           }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { UserPlus, Ban, Check, Pencil, Trash2, Upload } from "lucide-react"
-import ImportUsuariosModal from "./ImportUsuariosModal"
+import ImportUsuariosModal from "../../components/dashboard/ImportUsuariosModal"
 
 type Usuario = {
   id: string
