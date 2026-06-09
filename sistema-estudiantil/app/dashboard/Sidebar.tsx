@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation"
 import { signOut } from "next-auth/react"
 import {
   LayoutDashboard, Users, GraduationCap, BookOpen, ClipboardList,
-  FileText, CheckSquare, Megaphone, Calendar, BarChart2, LogOut
+  FileText, CheckSquare, Megaphone, Calendar, LogOut
 } from "lucide-react"
 
 // Menú para ADMIN y SUPPORT
@@ -35,12 +35,6 @@ const menuAdmin = [
       { href: "/dashboard/calendario", label: "Calendario", icon: Calendar },
     ]
   },
-  {
-    label: "REPORTES",
-    items: [
-      { href: "/dashboard/reportes", label: "Reportes", icon: BarChart2 },
-    ]
-  },
 ]
 
 // Menú para TEACHER
@@ -49,11 +43,8 @@ const menuProfesor = [
     label: "PANEL PROFESOR",
     items: [
       { href: "/dashboard/profesor", label: "Inicio", icon: LayoutDashboard },
-      { href: "/dashboard/profesor/materias", label: "Mis Materias", icon: ClipboardList },
-      { href: "/dashboard/profesor/estudiantes", label: "Mis Estudiantes", icon: GraduationCap },
-      { href: "/dashboard/profesor/notas", label: "Notas", icon: FileText },
-      { href: "/dashboard/profesor/asistencia", label: "Asistencia", icon: CheckSquare },
-      { href: "/dashboard/profesor/anuncios", label: "Anuncios", icon: Megaphone },
+      { href: "/dashboard/anuncios", label: "Anuncios", icon: Megaphone },
+      { href: "/dashboard/calendario", label: "Calendario", icon: Calendar },
     ]
   },
 ]
@@ -64,10 +55,20 @@ const menuEstudiante = [
     label: "PANEL ESTUDIANTE",
     items: [
       { href: "/dashboard/estudiante", label: "Inicio", icon: LayoutDashboard },
-      { href: "/dashboard/estudiante/notas", label: "Mis Notas", icon: FileText },
-      { href: "/dashboard/estudiante/asistencia", label: "Mi Asistencia", icon: CheckSquare },
-      { href: "/dashboard/estudiante/anuncios", label: "Anuncios", icon: Megaphone },
-      { href: "/dashboard/estudiante/calendario", label: "Calendario", icon: Calendar },
+      { href: "/dashboard/anuncios", label: "Anuncios", icon: Megaphone },
+      { href: "/dashboard/calendario", label: "Calendario", icon: Calendar },
+    ]
+  },
+]
+
+// Menú para PARENT
+const menuFamilia = [
+  {
+    label: "PANEL FAMILIAR",
+    items: [
+      { href: "/dashboard/familia", label: "Inicio", icon: LayoutDashboard },
+      { href: "/dashboard/anuncios", label: "Anuncios", icon: Megaphone },
+      { href: "/dashboard/calendario", label: "Calendario", icon: Calendar },
     ]
   },
 ]
@@ -78,6 +79,7 @@ export default function Sidebar({ role }: { role: string }) {
   const secciones =
     role === "TEACHER" ? menuProfesor :
     role === "STUDENT" ? menuEstudiante :
+    role === "PARENT" ? menuFamilia :
     menuAdmin
 
   return (

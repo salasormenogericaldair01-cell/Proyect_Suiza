@@ -19,12 +19,8 @@ export default auth((req) => {
     return redirectByRole(role, req.url)
   }
 
-  // Redirigir profesor y estudiante fuera del dashboard de admin
-  if (isLoggedIn && pathname === "/dashboard" && role === "TEACHER") {
-    return NextResponse.redirect(new URL("/dashboard/profesor", req.url))
-  }
-  if (isLoggedIn && pathname === "/dashboard" && role === "STUDENT") {
-    return NextResponse.redirect(new URL("/dashboard/estudiante", req.url))
+  if (isLoggedIn && pathname === "/dashboard" && role !== "ADMIN" && role !== "SUPPORT") {
+    return redirectByRole(role, req.url)
   }
 
   // Proteger rutas de admin: solo ADMIN y SUPPORT
@@ -33,6 +29,8 @@ export default auth((req) => {
     pathname.startsWith("/dashboard/estudiantes") ||
     pathname.startsWith("/dashboard/profesores") ||
     pathname.startsWith("/dashboard/materias") ||
+    pathname.startsWith("/dashboard/notas") ||
+    pathname.startsWith("/dashboard/asistencia") ||
     pathname.startsWith("/dashboard/reportes")
 
   if (isAdminRoute && role !== "ADMIN" && role !== "SUPPORT") {
@@ -51,6 +49,11 @@ export default auth((req) => {
     return redirectByRole(role, req.url)
   }
 
+  const isParentRoute = pathname.startsWith("/dashboard/familia")
+  if (isParentRoute && role !== "PARENT" && role !== "ADMIN") {
+    return redirectByRole(role, req.url)
+  }
+
   return NextResponse.next()
 })
 
@@ -63,8 +66,10 @@ function redirectByRole(role: string | undefined, url: string) {
       return NextResponse.redirect(new URL("/dashboard/profesor", url))
     case "STUDENT":
       return NextResponse.redirect(new URL("/dashboard/estudiante", url))
+    case "PARENT":
+      return NextResponse.redirect(new URL("/dashboard/familia", url))
     default:
-      return NextResponse.redirect(new URL("/login", url))
+      return NextResponse.redirect(new URL("/api/auth/signout", url))
   }
 }
 

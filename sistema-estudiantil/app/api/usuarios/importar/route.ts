@@ -1,15 +1,22 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ImportUserSchema } from "@/lib/validators/userImport";
+import { z } from "zod";
 import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
-import { auth } from "@/auth";
+import { canManageUsers } from "@/lib/authz";
+
+function getImportEmail(userData: unknown) {
+  if (typeof userData === "object" && userData !== null && "email" in userData) {
+    const email = (userData as { email?: unknown }).email;
+    return typeof email === "string" && email ? email : "Sin email";
+  }
+
+  return "Sin email";
+}
 
 export async function POST(req: Request) {
-  // Check authorization
-  const session = await auth();
-  const role = (session?.user as unknown as { role?: string })?.role;
-  if (!session || (role !== "ADMIN" && role !== "SUPPORT")) {
+  if (!(await canManageUsers())) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
@@ -41,8 +48,8 @@ export async function POST(req: Request) {
         let hashedPassword = "";
         if (!exists) {
           // Generate temporary password only for new users
-          tempPassword = crypto.randomBytes(8).toString("hex");
-          hashedPassword = await bcrypt.hash(tempPassword, 10);
+          tempPassword = crypto.randomBytes(12).toString("base64url");
+          hashedPassword = await bcrypt.hash(tempPassword, 12);
         }
 
         await prisma.$transaction(async (tx) => {
@@ -126,27 +133,28 @@ export async function POST(req: Request) {
             });
           }
         });
-      } catch (err: any) {
+      } catch (err: unknown) {
         let errorMsg = "Error desconocido";
-        if (err instanceof Error) {
+        if (err instanceof z.ZodError) {
+          errorMsg = err.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`).join(", ");
+        } else if (err instanceof Error) {
           errorMsg = err.message;
-        } else if (err.errors && Array.isArray(err.errors)) {
-          // Zod error formatting
-          errorMsg = err.errors.map((e: any) => `${e.path.join(".")}: ${e.message}`).join(", ");
         }
 
         results.errors.push({
           row: rowNum,
-          email: userData?.email || "Sin email",
+          email: getImportEmail(userData),
           error: errorMsg,
         });
       }
     }
 
     return NextResponse.json(results);
-  } catch (globalErr: any) {
+  } catch (globalErr: unknown) {
+    const message = globalErr instanceof Error ? globalErr.message : "Error al procesar la petición";
+
     return NextResponse.json(
-      { error: globalErr.message || "Error al procesar la petición" },
+      { error: message },
       { status: 500 }
     );
   }
