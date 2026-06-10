@@ -73,6 +73,7 @@ model User {
   sentMessages     ChatMessage[] @relation("SentMessages")
   receivedMessages ChatMessage[] @relation("ReceivedMessages")
   activityLogs     ActivityLog[]
+  passwordResetTokens PasswordResetToken[]
 
   @@map("users")
 }
@@ -222,4 +223,16 @@ model ActivityLog {
   createdAt DateTime @default(now())
 
   @@map("activity_logs")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("password_reset_tokens")
 }
