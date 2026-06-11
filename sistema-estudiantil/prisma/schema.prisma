@@ -1,8 +1,3 @@
-// =============================================
-// SISTEMA DE GESTIÓN ESTUDIANTIL
-// schema.prisma — Base de datos completa
-// =============================================
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,6 +5,187 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  String               @id @default(uuid())
+  name                String
+  email               String               @unique
+  password            String
+  role                Role
+  photo               String?
+  phone               String?
+  isActive            Boolean              @default(true)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  activityLogs        ActivityLog[]
+  announcements       Announcement[]
+  receivedMessages    ChatMessage[]        @relation("ReceivedMessages")
+  sentMessages        ChatMessage[]        @relation("SentMessages")
+  notifications       Notification[]
+  parent              Parent?
+  passwordResetTokens PasswordResetToken[]
+  student             Student?
+  teacher             Teacher?
+
+  @@map("users")
+}
+
+model Student {
+  id          String       @id @default(uuid())
+  userId      String       @unique
+  parentId    String?
+  career      String
+  cycle       String
+  studentCode String?      @unique
+  attendance  Attendance[]
+  grades      Grade[]
+  parent      Parent?      @relation(fields: [parentId], references: [id])
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("students")
+}
+
+model Parent {
+  id       String    @id @default(uuid())
+  userId   String    @unique
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  children Student[]
+
+  @@map("parents")
+}
+
+model Teacher {
+  id       String    @id @default(uuid())
+  userId   String    @unique
+  subjects Subject[]
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("teachers")
+}
+
+model Subject {
+  id             String          @id @default(uuid())
+  name           String
+  code           String?         @unique
+  career         String?
+  teacherId      String?
+  academicEvents AcademicEvent[]
+  attendance     Attendance[]
+  grades         Grade[]
+  teacher        Teacher?        @relation(fields: [teacherId], references: [id])
+
+  @@map("subjects")
+}
+
+model Grade {
+  id        String      @id @default(uuid())
+  studentId String
+  subjectId String
+  score     Float
+  period    GradePeriod
+  comment   String?
+  aiMessage String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  student   Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subject   Subject     @relation(fields: [subjectId], references: [id])
+
+  @@map("grades")
+}
+
+model Attendance {
+  id        String           @id @default(uuid())
+  studentId String
+  subjectId String
+  date      DateTime         @db.Date
+  status    AttendanceStatus @default(PRESENT)
+  note      String?
+  createdAt DateTime         @default(now())
+  student   Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subject   Subject          @relation(fields: [subjectId], references: [id])
+
+  @@unique([studentId, subjectId, date])
+  @@map("attendance")
+}
+
+model Notification {
+  id           String           @id @default(uuid())
+  userId       String
+  type         NotificationType
+  title        String
+  message      String
+  isRead       Boolean          @default(false)
+  gradeId      String?
+  attendanceId String?
+  createdAt    DateTime         @default(now())
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model Announcement {
+  id        String   @id @default(uuid())
+  authorId  String
+  title     String
+  content   String
+  isPublic  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  author    User     @relation(fields: [authorId], references: [id])
+
+  @@map("announcements")
+}
+
+model AcademicEvent {
+  id          String    @id @default(uuid())
+  title       String
+  description String?
+  type        EventType
+  date        DateTime  @db.Date
+  dueDate     DateTime? @db.Date
+  subjectId   String?
+  createdAt   DateTime  @default(now())
+  subject     Subject?  @relation(fields: [subjectId], references: [id])
+
+  @@map("academic_events")
+}
+
+model ChatMessage {
+  id         String   @id @default(uuid())
+  senderId   String
+  receiverId String
+  content    String
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  sender     User     @relation("SentMessages", fields: [senderId], references: [id])
+
+  @@map("chat_messages")
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid())
+  userId    String
+  action    String
+  entity    String?
+  entityId  String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("activity_logs")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_reset_tokens")
 }
 
 enum Role {
@@ -51,188 +227,4 @@ enum GradePeriod {
   TRIMESTER_2
   TRIMESTER_3
   FINAL
-}
-
-model User {
-  id        String   @id @default(uuid())
-  name      String
-  email     String   @unique
-  password  String
-  role      Role
-  photo     String?
-  phone     String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  student          Student?
-  parent           Parent?
-  teacher          Teacher?
-  notifications    Notification[]
-  announcements    Announcement[]
-  sentMessages     ChatMessage[] @relation("SentMessages")
-  receivedMessages ChatMessage[] @relation("ReceivedMessages")
-  activityLogs     ActivityLog[]
-  passwordResetTokens PasswordResetToken[]
-
-  @@map("users")
-}
-
-model Student {
-  id          String  @id @default(uuid())
-  userId      String  @unique
-  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  parentId    String?
-  parent      Parent? @relation(fields: [parentId], references: [id])
-  career      String
-  cycle       String
-  studentCode String? @unique
-
-  grades     Grade[]
-  attendance Attendance[]
-
-  @@map("students")
-}
-
-model Parent {
-  id       String    @id @default(uuid())
-  userId   String    @unique
-  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  children Student[]
-
-  @@map("parents")
-}
-
-model Teacher {
-  id       String    @id @default(uuid())
-  userId   String    @unique
-  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  subjects Subject[]
-
-  @@map("teachers")
-}
-
-model Subject {
-  id        String   @id @default(uuid())
-  name      String
-  code      String?  @unique
-  career    String?
-  teacherId String?
-  teacher   Teacher? @relation(fields: [teacherId], references: [id])
-
-  grades         Grade[]
-  attendance     Attendance[]
-  academicEvents AcademicEvent[]
-
-  @@map("subjects")
-}
-
-model Grade {
-  id        String      @id @default(uuid())
-  studentId String
-  student   Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  subjectId String
-  subject   Subject     @relation(fields: [subjectId], references: [id])
-  score     Float
-  period    GradePeriod
-  comment   String?
-  aiMessage String?
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-
-  @@map("grades")
-}
-
-model Attendance {
-  id        String           @id @default(uuid())
-  studentId String
-  student   Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  subjectId String
-  subject   Subject          @relation(fields: [subjectId], references: [id])
-  date      DateTime         @db.Date
-  status    AttendanceStatus @default(PRESENT)
-  note      String?
-  createdAt DateTime         @default(now())
-
-  @@unique([studentId, subjectId, date])
-  @@map("attendance")
-}
-
-model Notification {
-  id           String           @id @default(uuid())
-  userId       String
-  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type         NotificationType
-  title        String
-  message      String
-  isRead       Boolean          @default(false)
-  gradeId      String?
-  attendanceId String?
-  createdAt    DateTime         @default(now())
-
-  @@map("notifications")
-}
-
-model Announcement {
-  id        String   @id @default(uuid())
-  authorId  String
-  author    User     @relation(fields: [authorId], references: [id])
-  title     String
-  content   String
-  isPublic  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("announcements")
-}
-
-model AcademicEvent {
-  id          String    @id @default(uuid())
-  title       String
-  description String?
-  type        EventType
-  date        DateTime  @db.Date
-  dueDate     DateTime? @db.Date
-  subjectId   String?
-  subject     Subject?  @relation(fields: [subjectId], references: [id])
-  createdAt   DateTime  @default(now())
-
-  @@map("academic_events")
-}
-
-model ChatMessage {
-  id         String   @id @default(uuid())
-  senderId   String
-  sender     User     @relation("SentMessages", fields: [senderId], references: [id])
-  receiverId String
-  receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
-  content    String
-  isRead     Boolean  @default(false)
-  createdAt  DateTime @default(now())
-
-  @@map("chat_messages")
-}
-
-model ActivityLog {
-  id        String   @id @default(uuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  action    String
-  entity    String?
-  entityId  String?
-  createdAt DateTime @default(now())
-
-  @@map("activity_logs")
-}
-
-model PasswordResetToken {
-  id        String   @id @default(uuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash String   @unique
-  expiresAt DateTime
-  used      Boolean  @default(false)
-  createdAt DateTime @default(now())
-
-  @@map("password_reset_tokens")
 }

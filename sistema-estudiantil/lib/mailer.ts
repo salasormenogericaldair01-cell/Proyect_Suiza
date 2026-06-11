@@ -6,20 +6,60 @@ const smtpUser = process.env.SMTP_USER || ""
 const smtpPass = process.env.SMTP_PASS || ""
 const emailFrom = process.env.EMAIL_FROM || "no-reply@sistemaestudiantil.com"
 
-// Crear el transportador de nodemailer
-const transporter = nodemailer.createTransport({
-  host: smtpHost,
-  port: smtpPort,
-  secure: smtpPort === 465, // true para puerto 465, false para otros puertos
-  auth: smtpUser && smtpPass ? {
-    user: smtpUser,
-    pass: smtpPass,
-  } : undefined,
-  // Establecer tiempos de espera cortos en desarrollo para evitar colgar la petición
-  connectionTimeout: 5000, 
-  greetingTimeout: 5000,
-  socketTimeout: 5000,
-})
+// Configuración del transportador optimizada para Gmail
+const transporterOptions: any = smtpHost === "smtp.gmail.com" 
+  ? {
+      service: "gmail",
+      auth: {
+        user: smtpUser,
+        pass: smtpPass,
+      },
+    }
+  : {
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpPort === 465,
+      auth: smtpUser && smtpPass ? {
+        user: smtpUser,
+        pass: smtpPass,
+      } : undefined,
+    }
+
+transporterOptions.connectionTimeout = 5000
+transporterOptions.greetingTimeout = 5000
+transporterOptions.socketTimeout = 5000
+
+const useEthereal = process.env.USE_ETHEREAL === "true"
+
+let _cachedTransporter: any = null
+
+async function getTransporter() {
+  if (_cachedTransporter) return _cachedTransporter
+
+  if (useEthereal) {
+    // Crear cuenta de prueba Ethereal en tiempo de ejecución
+    const testAccount = await nodemailer.createTestAccount()
+    const etherealOptions = {
+      host: "smtp.ethereal.email",
+      port: 587,
+      secure: false,
+      auth: {
+        user: testAccount.user,
+        pass: testAccount.pass,
+      },
+      connectionTimeout: 5000,
+      greetingTimeout: 5000,
+      socketTimeout: 5000,
+    }
+    _cachedTransporter = nodemailer.createTransport(etherealOptions)
+    // expose test account info for logging if needed
+    ;(_cachedTransporter as any).__etherealAccount = testAccount
+    return _cachedTransporter
+  }
+
+  _cachedTransporter = nodemailer.createTransport(transporterOptions)
+  return _cachedTransporter
+}
 
 /**
  * Envía un correo con el código temporal y un enlace para restablecer la contraseña.
@@ -38,7 +78,7 @@ export async function sendPasswordResetEmail(email: string, token: string) {
   console.log("========================================================\n")
 
   const mailOptions = {
-    from: `"Sistema Estudiantil" <${emailFrom}>`,
+    from: emailFrom,
     to: email,
     subject: "Restablecer tu contraseña - Sistema de Gestión Estudiantil",
     html: `
@@ -76,13 +116,23 @@ export async function sendPasswordResetEmail(email: string, token: string) {
   }
 
   try {
-    console.log(`[SMTP] Intentando enviar correo a ${email} via ${smtpHost}:${smtpPort}...`)
+    const transporter = await getTransporter()
+    const effectiveHost = useEthereal ? 'ethereal' : smtpHost
+    console.log(`[SMTP] Intentando enviar correo a ${email} via ${effectiveHost}:${smtpPort}...`)
     const info = await transporter.sendMail(mailOptions)
     console.log(`[SMTP] Correo enviado exitosamente: MessageID = ${info.messageId}`)
+
+    // Si usamos Ethereal, imprimir la URL de vista previa
+    try {
+      const preview = nodemailer.getTestMessageUrl(info)
+      if (preview) console.log(`[SMTP][ETHEREAL] Vista previa: ${preview}`)
+    } catch (e) {
+      // ignore
+    }
+
     return info
   } catch (error) {
     console.error(`[SMTP ERROR] Falló el envío del correo a ${email}:`, error)
-    // Lanzamos el error para que la ruta API lo capture, aunque el flujo no se detenga si es controlado
     throw error
   }
 }
