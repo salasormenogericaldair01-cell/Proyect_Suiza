@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation"
 import { signOut } from "next-auth/react"
 import {
   LayoutDashboard, Users, GraduationCap, BookOpen, ClipboardList,
-  FileText, CheckSquare, Megaphone, Calendar, LogOut
+  FileText, CheckSquare, Megaphone, Calendar, LogOut, BarChart2
 } from "lucide-react"
 
 // Menú para ADMIN y SUPPORT
@@ -33,6 +33,7 @@ const menuAdmin = [
       { href: "/dashboard/asistencia", label: "Asistencia", icon: CheckSquare },
       { href: "/dashboard/anuncios", label: "Anuncios", icon: Megaphone },
       { href: "/dashboard/calendario", label: "Calendario", icon: Calendar },
+      { href: "/dashboard/reportes", label: "Reportes", icon: BarChart2 },
     ]
   },
 ]
@@ -43,6 +44,10 @@ const menuProfesor = [
     label: "PANEL PROFESOR",
     items: [
       { href: "/dashboard/profesor", label: "Inicio", icon: LayoutDashboard },
+      { href: "/dashboard/estudiantes", label: "Mis Estudiantes", icon: GraduationCap },
+      { href: "/dashboard/materias", label: "Mis Materias", icon: ClipboardList },
+      { href: "/dashboard/notas", label: "Registro de Notas", icon: FileText },
+      { href: "/dashboard/asistencia", label: "Registro Asistencia", icon: CheckSquare },
       { href: "/dashboard/anuncios", label: "Anuncios", icon: Megaphone },
       { href: "/dashboard/calendario", label: "Calendario", icon: Calendar },
     ]
@@ -55,6 +60,8 @@ const menuEstudiante = [
     label: "PANEL ESTUDIANTE",
     items: [
       { href: "/dashboard/estudiante", label: "Inicio", icon: LayoutDashboard },
+      { href: "/dashboard/notas", label: "Mis Notas", icon: FileText },
+      { href: "/dashboard/asistencia", label: "Mi Asistencia", icon: CheckSquare },
       { href: "/dashboard/anuncios", label: "Anuncios", icon: Megaphone },
       { href: "/dashboard/calendario", label: "Calendario", icon: Calendar },
     ]

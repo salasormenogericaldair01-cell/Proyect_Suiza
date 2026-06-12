@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { auth } from "@/auth"
+import { getSessionUser, canManageEvents } from "@/lib/authz"
 
 export async function GET() {
   try {
+    const user = await getSessionUser()
+    if (!user) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    }
+
     const eventos = await prisma.academicEvent.findMany({
       include: {
         subject: { select: { name: true } }
@@ -19,9 +24,8 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    if (!(await canManageEvents())) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 403 })
     }
 
     const body = await req.json()
@@ -31,15 +35,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Título, tipo y fecha son obligatorios" }, { status: 400 })
     }
 
+    const eventData: any = {
+      title,
+      description: description || null,
+      type,
+      date: new Date(date),
+      dueDate: dueDate ? new Date(dueDate) : null,
+    }
+
+    if (subjectId) {
+      eventData.subjectId = subjectId
+    }
+
     const evento = await prisma.academicEvent.create({
-      data: {
-        title,
-        description: description || null,
-        type,
-        date: new Date(date),
-        dueDate: dueDate ? new Date(dueDate) : null,
-        subjectId: subjectId || null
-      },
+      data: eventData,
       include: {
         subject: { select: { name: true } }
       }

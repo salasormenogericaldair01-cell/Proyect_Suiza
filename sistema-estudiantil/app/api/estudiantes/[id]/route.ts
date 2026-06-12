@@ -1,30 +1,49 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { canManageStudents } from "@/lib/authz"
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
-  const { parentId, career, cycle, studentCode } = await req.json()
+  try {
+    if (!(await canManageStudents())) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 403 })
+    }
 
-  let parentDbId: string | null = null
-  if (parentId) {
-    const padre = await prisma.parent.findUnique({ where: { userId: parentId } })
-    if (padre) parentDbId = padre.id
+    const { id } = await params
+    const { parentId, career, cycle, studentCode } = await req.json()
+
+    let parentDbId: string | null = null
+    if (parentId) {
+      const padre = await prisma.parent.findUnique({ where: { userId: parentId } })
+      if (padre) parentDbId = padre.id
+    }
+
+    const estudiante = await prisma.student.update({
+      where: { id },
+      data: {
+        career,
+        cycle,
+        studentCode: studentCode || null,
+        parentId: parentDbId,
+      },
+    })
+    return NextResponse.json(estudiante)
+  } catch (e) {
+    console.error(e)
+    return NextResponse.json({ error: "Error al actualizar estudiante" }, { status: 500 })
   }
-
-  const estudiante = await prisma.student.update({
-    where: { id },
-    data: {
-      career,
-      cycle,
-      studentCode: studentCode || null,
-      parentId: parentDbId,
-    },
-  })
-  return NextResponse.json(estudiante)
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
-  await prisma.student.delete({ where: { id } })
-  return NextResponse.json({ ok: true })
+  try {
+    if (!(await canManageStudents())) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 403 })
+    }
+
+    const { id } = await params
+    await prisma.student.delete({ where: { id } })
+    return NextResponse.json({ ok: true })
+  } catch (e) {
+    console.error(e)
+    return NextResponse.json({ error: "Error al eliminar estudiante" }, { status: 500 })
+  }
 }

@@ -7,9 +7,15 @@ const smtpPass = process.env.SMTP_PASS || ""
 const emailFrom = process.env.EMAIL_FROM || "no-reply@sistemaestudiantil.com"
 
 // Configuración del transportador optimizada para Gmail
-const transporterOptions: any = smtpHost === "smtp.gmail.com" 
+const transporterOptions: any = smtpHost === "smtp.gmail.com"
   ? {
-      service: "gmail",
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpPort === 465,
+      pool: true,
+      maxConnections: 5,
+      maxMessages: 100,
+      rateLimit: true,
       auth: {
         user: smtpUser,
         pass: smtpPass,
@@ -134,5 +140,123 @@ export async function sendPasswordResetEmail(email: string, token: string) {
   } catch (error) {
     console.error(`[SMTP ERROR] Falló el envío del correo a ${email}:`, error)
     throw error
+  }
+}
+
+export async function sendNewGradeEmail(email: string, studentName: string, subjectName: string, score: number, comment?: string) {
+  const mailOptions = {
+    from: emailFrom,
+    to: email,
+    subject: `Nueva Calificación Registrada: ${subjectName}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #ffffff;">
+        <h2 style="color: #1e3a8a; text-align: center;">Nueva Calificación</h2>
+        <p>Hola <strong>${studentName}</strong>,</p>
+        <p>Se ha registrado una nueva calificación en el sistema:</p>
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+          <tr style="background-color: #f8fafc;">
+            <th style="border: 1px solid #e2e8f0; padding: 8px; text-align: left;">Materia</th>
+            <td style="border: 1px solid #e2e8f0; padding: 8px;">${subjectName}</td>
+          </tr>
+          <tr>
+            <th style="border: 1px solid #e2e8f0; padding: 8px; text-align: left;">Nota</th>
+            <td style="border: 1px solid #e2e8f0; padding: 8px; font-weight: bold; color: ${score >= 13 ? '#16a34a' : '#dc2626'}">${score}</td>
+          </tr>
+          ${comment ? `
+          <tr style="background-color: #f8fafc;">
+            <th style="border: 1px solid #e2e8f0; padding: 8px; text-align: left;">Comentario</th>
+            <td style="border: 1px solid #e2e8f0; padding: 8px; font-style: italic;">${comment}</td>
+          </tr>
+          ` : ''}
+        </table>
+        <p style="font-size: 12px; color: #64748b; text-align: center; margin-top: 30px;">
+          Este es un correo automático, por favor no respondas a este mensaje.
+        </p>
+      </div>
+    `,
+    text: `Hola ${studentName},\n\nSe ha registrado una nueva calificación en la materia ${subjectName}: ${score}.\n\nSaludos.`,
+  }
+
+  try {
+    const transporter = await getTransporter()
+    await transporter.sendMail(mailOptions)
+    console.log(`[SMTP] Correo de nueva nota enviado a ${email}`)
+  } catch (error) {
+    console.error(`[SMTP ERROR] Falló el envío del correo de nueva nota a ${email}:`, error)
+  }
+}
+
+export async function sendLowGradeAlertEmail(email: string, studentName: string, subjectName: string, score: number) {
+  const mailOptions = {
+    from: emailFrom,
+    to: email,
+    subject: `⚠️ Alerta de Calificación Baja en ${subjectName}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #fecaca; border-radius: 8px; background-color: #fff5f5;">
+        <h2 style="color: #dc2626; text-align: center;">⚠️ Alerta de Calificación</h2>
+        <p>Estimado apoderado / estudiante,</p>
+        <p>Se ha registrado una calificación baja para <strong>${studentName}</strong> en la materia <strong>${subjectName}</strong>:</p>
+        <div style="text-align: center; margin: 24px 0;">
+          <span style="font-size: 28px; font-weight: bold; color: #dc2626; border: 2px solid #dc2626; padding: 10px 20px; border-radius: 8px; background-color: #fff;">
+            ${score}
+          </span>
+        </div>
+        <p>Recuerde que la nota mínima aprobatoria es <strong>13</strong>. Recomendamos revisar el tema con el docente y repasar las tareas correspondientes.</p>
+        <p style="font-size: 12px; color: #64748b; text-align: center; margin-top: 30px;">
+          Este es un correo automático de alerta.
+        </p>
+      </div>
+    `,
+    text: `Alerta: ${studentName} obtuvo una nota baja de ${score} en la materia ${subjectName}.`,
+  }
+
+  try {
+    const transporter = await getTransporter()
+    await transporter.sendMail(mailOptions)
+    console.log(`[SMTP] Alerta de nota baja enviada a ${email}`)
+  } catch (error) {
+    console.error(`[SMTP ERROR] Falló el envío del correo de alerta de nota baja a ${email}:`, error)
+  }
+}
+
+export async function sendAttendanceAlertEmail(email: string, studentName: string, subjectName: string, date: string, status: string) {
+  const statusLabel = status === "ABSENT" ? "Ausente" : status === "LATE" ? "Tardanza" : status === "EXCUSED" ? "Justificado" : status
+  const mailOptions = {
+    from: emailFrom,
+    to: email,
+    subject: `🔔 Reporte de Inasistencia/Tardanza: ${studentName}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #ffffff;">
+        <h2 style="color: #4f46e5; text-align: center;">🔔 Reporte de Asistencia</h2>
+        <p>Estimado apoderado / estudiante,</p>
+        <p>Se ha registrado una incidencia de asistencia para <strong>${studentName}</strong>:</p>
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+          <tr style="background-color: #f8fafc;">
+            <th style="border: 1px solid #e2e8f0; padding: 8px; text-align: left;">Materia</th>
+            <td style="border: 1px solid #e2e8f0; padding: 8px;">${subjectName}</td>
+          </tr>
+          <tr>
+            <th style="border: 1px solid #e2e8f0; padding: 8px; text-align: left;">Fecha</th>
+            <td style="border: 1px solid #e2e8f0; padding: 8px;">${date}</td>
+          </tr>
+          <tr style="background-color: #f8fafc;">
+            <th style="border: 1px solid #e2e8f0; padding: 8px; text-align: left;">Estado</th>
+            <td style="border: 1px solid #e2e8f0; padding: 8px; font-weight: bold; color: #dc2626;">${statusLabel}</td>
+          </tr>
+        </table>
+        <p style="font-size: 12px; color: #64748b; text-align: center; margin-top: 30px;">
+          Este es un correo automático de asistencia.
+        </p>
+      </div>
+    `,
+    text: `Reporte de Asistencia: ${studentName} registrado como ${statusLabel} en la materia ${subjectName} el día ${date}.`,
+  }
+
+  try {
+    const transporter = await getTransporter()
+    await transporter.sendMail(mailOptions)
+    console.log(`[SMTP] Correo de alerta de asistencia enviado a ${email}`)
+  } catch (error) {
+    console.error(`[SMTP ERROR] Falló el envío del correo de alerta de asistencia a ${email}:`, error)
   }
 }

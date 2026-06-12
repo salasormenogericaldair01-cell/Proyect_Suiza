@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { Plus, Pencil, Trash2 } from "lucide-react"
 
 const CARRERAS = [
@@ -42,19 +42,30 @@ export default function MateriasPage() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [filtroCarrera, setFiltroCarrera] = useState("")
+  const [userRole, setUserRole] = useState("")
 
-  const cargar = async () => {
+  const cargar = useCallback(async () => {
     setLoading(true)
-    const [m, p] = await Promise.all([
-      fetch("/api/materias").then(r => r.json()),
-      fetch("/api/profesores").then(r => r.json()),
-    ])
-    setMaterias(m)
-    setProfesores(p)
-    setLoading(false)
-  }
+    try {
+      const sesRes = await fetch("/api/auth/session").then(r => r.json())
+      const role = sesRes?.user?.role || ""
+      setUserRole(role)
 
-  useEffect(() => { cargar() }, [])
+      const m = await fetch("/api/materias").then(r => r.json())
+      setMaterias(Array.isArray(m) ? m : [])
+
+      if (role === "ADMIN" || role === "SUPPORT") {
+        const p = await fetch("/api/profesores").then(r => r.json())
+        setProfesores(Array.isArray(p) ? p : [])
+      }
+    } catch (err) {
+      console.error("Error al cargar materias:", err)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { cargar() }, [cargar])
 
   const materiasFiltradas = filtroCarrera
     ? materias.filter(m => m.career === filtroCarrera)
@@ -125,12 +136,14 @@ export default function MateriasPage() {
           <h1 className="text-2xl font-bold text-gray-800">Gestión de Materias</h1>
           <p className="text-gray-500 text-sm mt-1">Administra las materias por carrera del instituto</p>
         </div>
-        <button
-          onClick={() => { setShowModal(true); setError("") }}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
-        >
-          <Plus size={18} /> Nueva materia
-        </button>
+        {userRole === "ADMIN" && (
+          <button
+            onClick={() => { setShowModal(true); setError("") }}
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+          >
+            <Plus size={18} /> Nueva materia
+          </button>
+        )}
       </div>
 
       {success && <p className="text-green-600 bg-green-50 px-4 py-2 rounded-lg">{success}</p>}
@@ -160,7 +173,7 @@ export default function MateriasPage() {
                 <th className="px-6 py-3">Código</th>
                 <th className="px-6 py-3">Carrera</th>
                 <th className="px-6 py-3">Profesor</th>
-                <th className="px-6 py-3">Acciones</th>
+                {userRole === "ADMIN" && <th className="px-6 py-3">Acciones</th>}
               </tr>
             </thead>
             <tbody>
@@ -174,14 +187,16 @@ export default function MateriasPage() {
                     </span>
                   </td>
                   <td className="px-6 py-3 text-gray-600">{m.teacher?.user.name ?? "Sin asignar"}</td>
-                  <td className="px-6 py-3 flex gap-2">
-                    <button onClick={() => abrirEditar(m)} className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition" title="Editar">
-                      <Pencil size={16} />
-                    </button>
-                    <button onClick={() => handleEliminar(m.id, m.name)} className="p-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition" title="Eliminar">
-                      <Trash2 size={16} />
-                    </button>
-                  </td>
+                  {userRole === "ADMIN" && (
+                    <td className="px-6 py-3 flex gap-2">
+                      <button onClick={() => abrirEditar(m)} className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition" title="Editar">
+                        <Pencil size={16} />
+                      </button>
+                      <button onClick={() => handleEliminar(m.id, m.name)} className="p-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition" title="Eliminar">
+                        <Trash2 size={16} />
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -189,6 +204,7 @@ export default function MateriasPage() {
         )}
       </div>
 
+      {/* Modal crear */}
       {showModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md space-y-4">
@@ -212,6 +228,7 @@ export default function MateriasPage() {
         </div>
       )}
 
+      {/* Modal editar */}
       {showEditModal && materiaEditar && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md space-y-4">

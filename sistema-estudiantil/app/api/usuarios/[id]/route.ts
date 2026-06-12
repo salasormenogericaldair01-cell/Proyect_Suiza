@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { canManageUsers } from "@/lib/authz"
+import { canManageUsers, canDeleteUser } from "@/lib/authz"
 import { Role } from "@prisma/client"
 import { z } from "zod"
 
@@ -36,7 +36,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  if (!(await canManageUsers())) {
+  if (!(await canDeleteUser())) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 })
   }
 

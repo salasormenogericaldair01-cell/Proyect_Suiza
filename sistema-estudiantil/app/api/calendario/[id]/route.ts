@@ -1,28 +1,32 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { auth } from "@/auth"
+import { canManageEvents } from "@/lib/authz"
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    if (!(await canManageEvents())) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 403 })
     }
 
     const { id } = await params
     const body = await req.json()
     const { title, description, type, date, dueDate, subjectId } = body
 
+    const eventData: any = {
+      title,
+      description: description || null,
+      type,
+      date: new Date(date),
+      dueDate: dueDate ? new Date(dueDate) : null,
+    }
+
+    if (subjectId !== undefined) {
+      eventData.subjectId = subjectId || null
+    }
+
     const evento = await prisma.academicEvent.update({
       where: { id },
-      data: {
-        title,
-        description: description || null,
-        type,
-        date: new Date(date),
-        dueDate: dueDate ? new Date(dueDate) : null,
-        subjectId: subjectId || null
-      },
+      data: eventData,
       include: {
         subject: { select: { name: true } }
       }
@@ -37,9 +41,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    if (!(await canManageEvents())) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 403 })
     }
 
     const { id } = await params

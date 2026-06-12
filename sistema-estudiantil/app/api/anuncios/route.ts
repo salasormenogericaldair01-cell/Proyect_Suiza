@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { auth } from "@/auth"
+import { getSessionUser, canManageAnnouncements } from "@/lib/authz"
 
 export async function GET() {
   try {
+    const user = await getSessionUser()
+    if (!user) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    }
+
     const anuncios = await prisma.announcement.findMany({
       include: {
         author: {
@@ -21,9 +26,9 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    const user = await getSessionUser()
+    if (!user || !(await canManageAnnouncements())) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 403 })
     }
 
     const body = await req.json()
@@ -38,7 +43,7 @@ export async function POST(req: Request) {
         title,
         content,
         isPublic: isPublic ?? true,
-        authorId: session.user.id
+        authorId: user.id
       },
       include: {
         author: { select: { name: true, role: true } }

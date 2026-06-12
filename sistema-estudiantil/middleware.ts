@@ -23,17 +23,31 @@ export default auth((req) => {
     return redirectByRole(role, req.url)
   }
 
-  // Proteger rutas de admin: solo ADMIN y SUPPORT
-  const isAdminRoute =
+  // 1. Rutas exclusivas para ADMIN y SUPPORT: usuarios, profesores, reportes
+  const isUserOrProfesorRoute =
     pathname.startsWith("/dashboard/usuarios") ||
-    pathname.startsWith("/dashboard/estudiantes") ||
     pathname.startsWith("/dashboard/profesores") ||
-    pathname.startsWith("/dashboard/materias") ||
-    pathname.startsWith("/dashboard/notas") ||
-    pathname.startsWith("/dashboard/asistencia") ||
     pathname.startsWith("/dashboard/reportes")
 
-  if (isAdminRoute && role !== "ADMIN" && role !== "SUPPORT") {
+  if (isUserOrProfesorRoute && role !== "ADMIN" && role !== "SUPPORT") {
+    return redirectByRole(role, req.url)
+  }
+
+  // 2. Rutas para ADMIN, SUPPORT y TEACHER: estudiantes, materias
+  const isEstudiantesOrMateriasRoute =
+    pathname.startsWith("/dashboard/estudiantes") ||
+    pathname.startsWith("/dashboard/materias")
+
+  if (isEstudiantesOrMateriasRoute && role !== "ADMIN" && role !== "SUPPORT" && role !== "TEACHER") {
+    return redirectByRole(role, req.url)
+  }
+
+  // 3. Rutas para ADMIN, SUPPORT, TEACHER y STUDENT: notas, asistencia
+  const isNotasOrAsistenciaRoute =
+    pathname.startsWith("/dashboard/notas") ||
+    pathname.startsWith("/dashboard/asistencia")
+
+  if (isNotasOrAsistenciaRoute && role !== "ADMIN" && role !== "SUPPORT" && role !== "TEACHER" && role !== "STUDENT") {
     return redirectByRole(role, req.url)
   }
 

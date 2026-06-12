@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { canManageUsers } from "@/lib/authz"
+import { canManageUsers, getSessionUser } from "@/lib/authz"
+import { logActivity } from "@/lib/activity-log"
 import bcrypt from "bcryptjs"
 import { Role } from "@prisma/client"
 import { z } from "zod"
@@ -61,6 +62,11 @@ export async function POST(req: Request) {
     },
     select: { id: true, name: true, email: true, role: true, isActive: true },
   })
+
+  const currentUser = await getSessionUser()
+  if (currentUser) {
+    await logActivity(currentUser.id, `CREACION_USUARIO: ${usuario.email}`, "users", usuario.id)
+  }
 
   return NextResponse.json(usuario, { status: 201 })
 }

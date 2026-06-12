@@ -33,8 +33,8 @@ type Materia = {
 }
 
 function colorNota(score: number) {
-  if (score >= 15) return "bg-green-100 text-green-700"
-  if (score >= 11) return "bg-yellow-100 text-yellow-700"
+  if (score >= 13) return "bg-green-100 text-green-700"
+  if (score >= 10) return "bg-yellow-100 text-yellow-700"
   return "bg-red-100 text-red-700"
 }
 
@@ -56,18 +56,31 @@ export default function NotasPage() {
   const [success, setSuccess] = useState("")
   const [filtroPeriodo, setFiltroPeriodo] = useState("")
   const [loadingIA, setLoadingIA] = useState(false)
+  const [userRole, setUserRole] = useState("")
 
   const cargar = useCallback(async () => {
     setLoading(true)
-    const [n, e, m] = await Promise.all([
-      fetch("/api/notas").then(r => r.json()),
-      fetch("/api/estudiantes").then(r => r.json()),
-      fetch("/api/materias").then(r => r.json()),
-    ])
-    setNotas(n)
-    setEstudiantes(e)
-    setMaterias(m)
-    setLoading(false)
+    try {
+      const sesRes = await fetch("/api/auth/session").then(r => r.json())
+      const role = sesRes?.user?.role || ""
+      setUserRole(role)
+
+      const n = await fetch("/api/notas").then(r => r.json())
+      setNotas(Array.isArray(n) ? n : [])
+
+      if (role === "ADMIN" || role === "TEACHER") {
+        const [e, m] = await Promise.all([
+          fetch("/api/estudiantes").then(r => r.json()),
+          fetch("/api/materias").then(r => r.json()),
+        ])
+        setEstudiantes(Array.isArray(e) ? e : [])
+        setMaterias(Array.isArray(m) ? m : [])
+      }
+    } catch (err) {
+      console.error("Error al cargar notas:", err)
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => { cargar() }, [cargar])
@@ -141,6 +154,8 @@ export default function NotasPage() {
     setShowEditModal(true)
   }
 
+  const puedeModificar = userRole === "ADMIN" || userRole === "TEACHER"
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -148,12 +163,14 @@ export default function NotasPage() {
           <h1 className="text-2xl font-bold text-gray-800">Gestión de Notas</h1>
           <p className="text-gray-500 text-sm mt-1">Registra y administra las notas de los estudiantes</p>
         </div>
-        <button
-          onClick={() => { setShowModal(true); setError("") }}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
-        >
-          <Plus size={18} /> Nueva nota
-        </button>
+        {puedeModificar && (
+          <button
+            onClick={() => { setShowModal(true); setError("") }}
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+          >
+            <Plus size={18} /> Nueva nota
+          </button>
+        )}
       </div>
 
       {success && <p className="text-green-600 bg-green-50 px-4 py-2 rounded-lg">{success}</p>}
@@ -184,7 +201,7 @@ export default function NotasPage() {
                 <th className="px-6 py-3">Período</th>
                 <th className="px-6 py-3">Nota</th>
                 <th className="px-6 py-3">Mensaje IA</th>
-                <th className="px-6 py-3">Acciones</th>
+                {puedeModificar && <th className="px-6 py-3">Acciones</th>}
               </tr>
             </thead>
             <tbody>
@@ -206,14 +223,16 @@ export default function NotasPage() {
                       </span>
                     ) : "—"}
                   </td>
-                  <td className="px-6 py-3 flex gap-2">
-                    <button onClick={() => abrirEditar(n)} className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition">
-                      <Pencil size={16} />
-                    </button>
-                    <button onClick={() => handleEliminar(n.id)} className="p-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition">
-                      <Trash2 size={16} />
-                    </button>
-                  </td>
+                  {puedeModificar && (
+                    <td className="px-6 py-3 flex gap-2">
+                      <button onClick={() => abrirEditar(n)} className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition">
+                        <Pencil size={16} />
+                      </button>
+                      <button onClick={() => handleEliminar(n.id)} className="p-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition">
+                        <Trash2 size={16} />
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

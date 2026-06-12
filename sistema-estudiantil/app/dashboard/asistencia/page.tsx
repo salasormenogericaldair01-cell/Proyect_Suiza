@@ -51,18 +51,31 @@ export default function AsistenciaPage() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [filtroEstado, setFiltroEstado] = useState("")
+  const [userRole, setUserRole] = useState("")
 
   const cargar = useCallback(async () => {
     setLoading(true)
-    const [a, e, m] = await Promise.all([
-      fetch("/api/asistencia").then(r => r.json()),
-      fetch("/api/estudiantes").then(r => r.json()),
-      fetch("/api/materias").then(r => r.json()),
-    ])
-    setAsistencias(a)
-    setEstudiantes(e)
-    setMaterias(m)
-    setLoading(false)
+    try {
+      const sesRes = await fetch("/api/auth/session").then(r => r.json())
+      const role = sesRes?.user?.role || ""
+      setUserRole(role)
+
+      const a = await fetch("/api/asistencia").then(r => r.json())
+      setAsistencias(Array.isArray(a) ? a : [])
+
+      if (role === "ADMIN" || role === "TEACHER") {
+        const [e, m] = await Promise.all([
+          fetch("/api/estudiantes").then(r => r.json()),
+          fetch("/api/materias").then(r => r.json()),
+        ])
+        setEstudiantes(Array.isArray(e) ? e : [])
+        setMaterias(Array.isArray(m) ? m : [])
+      }
+    } catch (err) {
+      console.error("Error al cargar asistencia:", err)
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => { cargar() }, [cargar])
@@ -124,6 +137,8 @@ export default function AsistenciaPage() {
     setShowEditModal(true)
   }
 
+  const puedeModificar = userRole === "ADMIN" || userRole === "TEACHER"
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -131,12 +146,14 @@ export default function AsistenciaPage() {
           <h1 className="text-2xl font-bold text-gray-800">Gestión de Asistencia</h1>
           <p className="text-gray-500 text-sm mt-1">Registra y administra la asistencia de los estudiantes</p>
         </div>
-        <button
-          onClick={() => { setShowModal(true); setError("") }}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
-        >
-          <Plus size={18} /> Nueva asistencia
-        </button>
+        {puedeModificar && (
+          <button
+            onClick={() => { setShowModal(true); setError("") }}
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+          >
+            <Plus size={18} /> Nueva asistencia
+          </button>
+        )}
       </div>
 
       {success && <p className="text-green-600 bg-green-50 px-4 py-2 rounded-lg">{success}</p>}
@@ -167,7 +184,7 @@ export default function AsistenciaPage() {
                 <th className="px-6 py-3">Fecha</th>
                 <th className="px-6 py-3">Estado</th>
                 <th className="px-6 py-3">Nota</th>
-                <th className="px-6 py-3">Acciones</th>
+                {puedeModificar && <th className="px-6 py-3">Acciones</th>}
               </tr>
             </thead>
             <tbody>
@@ -184,14 +201,16 @@ export default function AsistenciaPage() {
                     </span>
                   </td>
                   <td className="px-6 py-3 text-gray-500">{a.note ?? "—"}</td>
-                  <td className="px-6 py-3 flex gap-2">
-                    <button onClick={() => abrirEditar(a)} className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition">
-                      <Pencil size={16} />
-                    </button>
-                    <button onClick={() => handleEliminar(a.id)} className="p-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition">
-                      <Trash2 size={16} />
-                    </button>
-                  </td>
+                  {puedeModificar && (
+                    <td className="px-6 py-3 flex gap-2">
+                      <button onClick={() => abrirEditar(a)} className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition">
+                        <Pencil size={16} />
+                      </button>
+                      <button onClick={() => handleEliminar(a.id)} className="p-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition">
+                        <Trash2 size={16} />
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -199,6 +218,7 @@ export default function AsistenciaPage() {
         )}
       </div>
 
+      {/* Modal crear */}
       {showModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md space-y-4">
@@ -225,6 +245,7 @@ export default function AsistenciaPage() {
         </div>
       )}
 
+      {/* Modal editar */}
       {showEditModal && asistenciaEditar && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md space-y-4">

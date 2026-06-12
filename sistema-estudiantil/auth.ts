@@ -58,6 +58,21 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return session
     }
   },
+  events: {
+    async signIn({ user }) {
+      if (user?.id) {
+        const { logActivity } = await import("@/lib/activity-log")
+        await logActivity(user.id, "LOGIN", "users", user.id)
+      }
+    },
+    async signOut(message: any) {
+      const token = message?.token
+      if (token?.id) {
+        const { logActivity } = await import("@/lib/activity-log")
+        await logActivity(token.id as string, "LOGOUT", "users", token.id as string)
+      }
+    }
+  },
   pages: {
     signIn: "/login"
   }
